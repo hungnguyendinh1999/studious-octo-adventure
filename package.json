@@ -1,0 +1,26 @@
+{
+  "name": "adlc-phase1-ba-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "draft": "tsx src/cli.ts draft",
+    "show": "tsx src/cli.ts show",
+    "approve": "tsx src/cli.ts approve",
+    "request-changes": "tsx src/cli.ts request-changes",
+    "list": "tsx src/cli.ts list",
+    "audit": "tsx src/cli.ts audit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "nanoid": "^5.0.7",
+    "openai": "^7.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
