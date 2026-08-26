@@ -1,18 +1,19 @@
 # ADLC Phase 1 — BA Agent (Todo App Demo)
 
-Runnable Phase 1 of the ADLC: one or more loose input documents (BRD,
-notes, whatever exists) → agent-drafted requirements + feature matrix →
-BA/PO gate (approve or request changes) → approved content feeds the
-context lake for future runs. Intentionally thin — a CLI, a local
-file-based artifact store, and an append-only audit log. Every piece is
-designed to be swapped out; see below.
+Runnable Phase 1 of the ADLC: a folder of loose input documents (BRD,
+notes, whatever exists) → agent-drafted PRD → BA/PO gate (approve or
+request changes) → approved content feeds the context lake for future
+runs. Intentionally thin — a CLI, a local file-based artifact store, and
+an append-only audit log. Every piece is designed to be swapped out; see
+below.
 
 ## What's here
 
 - `skills/draft-requirements.md` — the BA agent's "brain": role, input
-  handling (multiple documents, knowledge base + context lake context), output format
-  (problem statement, goals, non-goals, user stories, feature matrix,
-  acceptance criteria, open questions), and rules.
+  handling (a folder of documents, knowledge base + context lake
+  context), output format (problem statement, goals, non-goals, user
+  stories with inline priority/module tags, acceptance criteria, open
+  questions), and rules.
 - `skills/update-context-lake.md` — a second, narrower skill: extracts
   only durable, reusable knowledge from an *approved* requirements doc.
   Runs after `approve`, never before.
@@ -37,9 +38,10 @@ designed to be swapped out; see below.
   `skills/update-context-lake.md`, then calls `log-context-update` to
   record that it did. Auto-loaded (alongside the knowledge base) on
   every `draft`.
-- `requests/todo-app.md` + `requests/todo-app-notes.md` — two example
-  input docs with slightly conflicting info, to demo how the agent
-  reconciles (and flags) conflicts across documents.
+- `requests/` — the BRD location for the demo: two example input docs
+  (`todo-app.md`, `todo-app-notes.md`) with slightly conflicting info,
+  to show how the agent reconciles (and flags) conflicts across
+  documents in the same folder.
 
 ## Setup
 
@@ -52,11 +54,11 @@ cp .env.example .env
 ## Run the demo
 
 \`\`\`bash
-# 1. Draft requirements from multiple loose input docs
-npm run draft -- requests/todo-app.md requests/todo-app-notes.md --title "Todo App"
+# 1. Draft requirements from a folder of loose input docs
+npm run draft -- requests --title "Todo App"
 # → prints a work item id, e.g. "a1b2c3d4"
 
-# 2. Read the draft (includes the feature matrix)
+# 2. Read the draft (the PRD)
 npm run show -- a1b2c3d4
 
 # 3a. Approve it — writes the audit record only
@@ -105,9 +107,9 @@ base and context lake docs get loaded.
 
 ## Known gaps (expected — this is Phase 1 only)
 
-- Feature matrix is markdown-table-only, not machine-parseable yet — fine
-  for human review, will need a structured (JSON) form once Phase 3 needs
-  to consume tasks programmatically
+- PRD is markdown-only, not machine-parseable yet — fine for human
+  review, will need a structured (JSON) form once Phase 3 needs to
+  consume user stories programmatically
 - No triage step yet (bounded/simple work still goes through the full
   flow — worth revisiting once you have real cycle-time data)
 - Knowledge base is a flat file passed in full every run — no retrieval,

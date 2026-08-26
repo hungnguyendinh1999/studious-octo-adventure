@@ -7,6 +7,7 @@ import path from "path";
 import { LocalDocumentStore } from "./documentStore.js";
 import { appendAuditEvent, readAuditLog } from "./auditLog.js";
 import { draftRequirements, type LabeledDoc } from "./baAgent.js";
+import { loadInputDocsFromFolder } from "./inputLoader.js";
 import { OllamaModelClient } from "./modelClient.js";
 import type { RequirementsArtifact, WorkItem } from "./types.js";
 
@@ -15,15 +16,6 @@ const program = new Command();
 const CONTEXT_DIR = path.resolve(process.cwd(), "context");
 const KNOWLEDGE_BASE_PATH = path.join(CONTEXT_DIR, "knowledge-base.md");
 const CONTEXT_LAKE_PATH = path.join(CONTEXT_DIR, "context-lake.md");
-
-async function loadInputDocs(files: string[]): Promise<LabeledDoc[]> {
-  return Promise.all(
-    files.map(async (f) => ({
-      filename: path.basename(f),
-      content: await fs.readFile(path.resolve(f), "utf-8"),
-    }))
-  );
-}
 
 async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
   try {
@@ -35,14 +27,14 @@ async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
 }
 
 program
-  .command("draft <files...>")
+  .command("draft <location>")
   .description(
-    "Run the BA agent on one or more raw input documents (BRD, notes, etc.); creates a WorkItem + requirements draft"
+    "Run the BA agent on a folder of raw input documents (BRD, notes, etc.); creates a WorkItem + requirements draft"
   )
   .option("-t, --title <title>", "Short title for the work item", "Untitled")
-  .action(async (files: string[], opts: { title: string }) => {
+  .action(async (location: string, opts: { title: string }) => {
     const modelClient = new OllamaModelClient();
-    const inputDocs = await loadInputDocs(files);
+    const inputDocs = await loadInputDocsFromFolder(path.resolve(location));
     const knowledgeBaseDocs = await loadContextFile(KNOWLEDGE_BASE_PATH);
     const contextLakeDocs = await loadContextFile(CONTEXT_LAKE_PATH);
 
