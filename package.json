@@ -9,7 +9,8 @@
     "approve": "tsx src/cli.ts approve",
     "request-changes": "tsx src/cli.ts request-changes",
     "list": "tsx src/cli.ts list",
-    "audit": "tsx src/cli.ts audit"
+    "audit": "tsx src/cli.ts audit",
+    "test": "node --import tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
