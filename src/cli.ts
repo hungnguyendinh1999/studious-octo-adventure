@@ -29,7 +29,10 @@ async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
 program
   .command("draft <location>")
   .description(
-    "Run the BA agent on a folder of raw input documents (BRD, notes, etc.); creates a WorkItem + requirements draft"
+    "[EVAL HARNESS ONLY] Run the BA agent on a folder of raw input documents via " +
+      "ModelClient; creates a WorkItem + requirements draft. This is an internal " +
+      "model-comparison script, not the daily flow — day to day, follow " +
+      "skills/draft-requirements.md in your own AI harness instead."
   )
   .option("-t, --title <title>", "Short title for the work item", "Untitled")
   .action(async (location: string, opts: { title: string }) => {
