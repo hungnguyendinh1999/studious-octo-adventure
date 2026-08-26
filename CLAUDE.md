@@ -4,8 +4,8 @@
 
 Local-first ADLC (AI Development Lifecycle): AI agents draft artifacts at
 each SDLC stage, humans gate each stage before it proceeds. This repo is
-**Phase 1 only**: raw request docs → agent-drafted requirements + feature
-matrix → BA/PO approval gate → context lake update.
+**Phase 1 only**: raw request docs (BRD) → agent-drafted PRD → BA/PO
+approval gate → context lake update.
 
 ## Settled decisions — do not relitigate these
 
@@ -15,12 +15,28 @@ matrix → BA/PO approval gate → context lake update.
 - **Core banking / Temenos T24 is NOT the pilot target.** Too much
   compliance overhead to validate the mechanism quickly. Prove it on
   something small first; bring the pattern to core banking later.
-- **Requirements stage (Phase 1) outputs PRD + Feature Matrix only.** No
-  SSD/TDD here — those belong to Design (Phase 2) or later, if used at
-  all.
+- **Requirements stage (Phase 1) outputs a single PRD document.** No
+  separate Feature Matrix — Priority and Module/Area are tagged inline
+  per user story instead. No SSD/TDD here either — those belong to
+  Design (Phase 2) or later, if used at all.
 - **Every stage transition is a human gate**: draft → review → approve OR
   request-changes (loop back to the agent with feedback). Never skip
   logging a transition, including loop-backs.
+- **Audit-log write is structurally enforced.** Approval must trigger a
+  callable CLI subcommand that performs the JSONL write — never left to
+  agent discretion, never invoked implicitly elsewhere in the flow. This
+  is the guarantee that survives even if agent behavior drifts.
+- **Approval signal is the literal word "approve" or "approved."** No
+  fuzzy matching, no inferred sentiment.
+- **BRD "location" is a folder of one or more documents**, not a single
+  file — preserves multi-document conflict detection.
+- **Model swapping is not this repo's responsibility.** Project teams
+  self-select their own AI harness (Claude Code, Codex, Ollama, etc.)
+  independently. The `ModelClient`/`draft` CLI here is a thin internal
+  evaluation harness only, not a daily product surface.
+- **Notification is out of scope for this repo.** Native tool
+  notifications (per team, per harness) handle it — not something
+  this codebase implements.
 
 ## Three-store architecture — do not conflate these
 
@@ -53,8 +69,7 @@ interface.
 
 ## Phases (this repo is Phase 1 only)
 
-1. **Requirements Analysis** (this repo) — BA agent, PRD + Feature
-   Matrix, BA/PO gate
+1. **Requirements Analysis** (this repo) — BA agent, PRD, BA/PO gate
 2. **Design** (not built yet) — same flow, different skill + tools
    (design specs, UI/UX), Reviewer gate
 3. **Coding** — task breakdown (human-gated) → test-first RED (CI-
