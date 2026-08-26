@@ -140,16 +140,18 @@ export interface CliResult {
  */
 export function runCli(
   cliArgs: string[],
-  opts: { cwd: string; ollamaBaseUrl: string }
+  opts: { cwd: string; ollamaBaseUrl?: string }
 ): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(TSX_BIN, [CLI_PATH, ...cliArgs], {
       cwd: opts.cwd,
-      env: {
-        ...process.env,
-        OLLAMA_MODEL: "test-model",
-        OLLAMA_BASE_URL: opts.ollamaBaseUrl,
-      },
+      env: opts.ollamaBaseUrl
+        ? {
+            ...process.env,
+            OLLAMA_MODEL: "test-model",
+            OLLAMA_BASE_URL: opts.ollamaBaseUrl,
+          }
+        : process.env,
     });
 
     let stdout = "";

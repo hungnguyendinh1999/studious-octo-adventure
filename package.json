@@ -7,6 +7,7 @@
     "draft": "tsx src/cli.ts draft",
     "show": "tsx src/cli.ts show",
     "approve": "tsx src/cli.ts approve",
+    "log-context-update": "tsx src/cli.ts log-context-update",
     "request-changes": "tsx src/cli.ts request-changes",
     "list": "tsx src/cli.ts list",
     "audit": "tsx src/cli.ts audit",

@@ -43,9 +43,15 @@ approval gate → context lake update.
 - **Knowledge Base** (`context/knowledge-base.md`): human-curated only.
   Domain facts, conventions, access notes. The agent reads it, never
   writes to it.
-- **Context Lake** (`context/context-lake.md`): agent-written only, via
-  `skills/update-context-lake.md` + `src/contextLakeAgent.ts`. Populated
-  only from *approved* decisions — never from a draft still in review.
+- **Context Lake** (`context/context-lake.md`): agent-written only.
+  After `approve`, the harness-agent follows `skills/update-context-lake.md`
+  itself (using its own model) to generate the update and append it
+  directly, then calls `log-context-update` — a second deterministic
+  audit-write subcommand, mirroring `approve`'s — to record that it
+  happened. `src/contextLakeAgent.ts` still exists but is no longer
+  called from `approve`; it's available only to the `draft` eval harness.
+  Populated only from *approved* decisions — never from a draft still in
+  review.
 - **Artifact Store** (`src/documentStore.ts`, `artifacts/`): versioned
   per-stage outputs. Local filesystem now, behind a swappable
   `DocumentStore` interface — Outline is the likely future backend since

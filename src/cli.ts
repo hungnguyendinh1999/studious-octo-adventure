@@ -7,7 +7,6 @@ import path from "path";
 import { LocalDocumentStore } from "./documentStore.js";
 import { appendAuditEvent, readAuditLog } from "./auditLog.js";
 import { draftRequirements, type LabeledDoc } from "./baAgent.js";
-import { extractContextLakeUpdate } from "./contextLakeAgent.js";
 import { OllamaModelClient } from "./modelClient.js";
 import type { RequirementsArtifact, WorkItem } from "./types.js";
 
@@ -103,12 +102,12 @@ program
 program
   .command("approve <workItemId>")
   .description(
-    "BA/PO gate: mark the latest requirements draft approved, then update the context lake"
+    "BA/PO gate: mark the latest requirements draft approved and write the audit " +
+      "record. Does not touch the context lake — see log-context-update."
   )
   .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
   .option("-n, --note <note>", "Optional review note")
   .action(async (workItemId: string, opts: { by: string; note?: string }) => {
-    const modelClient = new OllamaModelClient();
     const artifact = await store.loadLatestRequirements(workItemId);
     artifact.status = "approved";
     artifact.reviewedBy = opts.by;
@@ -124,32 +123,31 @@ program
       detail: { version: artifact.version, note: opts.note },
     });
     console.log(`Work item ${workItemId} requirements approved by ${opts.by}.`);
-
-    console.log("Checking for durable knowledge to add to the context lake...");
-    const existingContextLake = await fs
-      .readFile(CONTEXT_LAKE_PATH, "utf-8")
-      .catch(() => "");
-    const update = await extractContextLakeUpdate(
-      modelClient,
-      artifact.content,
-      workItemId,
-      existingContextLake
+    console.log(
+      "Next step: follow skills/update-context-lake.md yourself to update the " +
+        "context lake for this work item."
     );
+  });
 
-    if (update) {
-      await fs.appendFile(CONTEXT_LAKE_PATH, `\n${update}\n`);
-      await appendAuditEvent({
-        timestamp: new Date().toISOString(),
-        workItemId,
-        actor: "agent:context-lake-agent",
-        action: "context_lake_updated",
-        stage: "requirements",
-        detail: { addedContent: update },
-      });
-      console.log("Context lake updated:\n" + update);
-    } else {
-      console.log("No new durable knowledge found — context lake left unchanged.");
-    }
+program
+  .command("log-context-update <workItemId>")
+  .description(
+    "Deterministic audit write for a context-lake update you performed yourself " +
+      "per skills/update-context-lake.md. Call this after you've already appended " +
+      "to context/context-lake.md — it does not touch that file or call a model."
+  )
+  .option("-b, --by <name>", "Who/what performed the update", "context-lake-agent")
+  .option("-n, --note <note>", "Optional summary of what was added")
+  .action(async (workItemId: string, opts: { by: string; note?: string }) => {
+    await appendAuditEvent({
+      timestamp: new Date().toISOString(),
+      workItemId,
+      actor: `agent:${opts.by}`,
+      action: "context_lake_updated",
+      stage: "requirements",
+      detail: { note: opts.note },
+    });
+    console.log(`Context-lake update for work item ${workItemId} recorded.`);
   });
 
 program

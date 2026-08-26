@@ -20,7 +20,8 @@ designed to be swapped out; see below.
   labeled input docs, knowledge base docs, and context lake docs.
 - `src/contextLakeAgent.ts` — calls Claude with the context-lake skill,
   returns a markdown snippet to append (or nothing, if there's nothing
-  durable to add).
+  durable to add). Used by the `draft` eval harness only — the daily
+  `approve` flow no longer calls it (see below).
 - `src/documentStore.ts` — the artifact store. Local filesystem for now
   (`artifacts/`), behind a `DocumentStore`-shaped interface so it can be
   swapped for Outline later without touching callers.
@@ -28,11 +29,13 @@ designed to be swapped out; see below.
   in for the insert-only Postgres table (and eventually immudb) from the
   design doc.
 - `src/cli.ts` — orchestration entrypoint: `draft`, `show`, `approve`,
-  `request-changes`, `list`, `audit`.
+  `log-context-update`, `request-changes`, `list`, `audit`.
 - `context/knowledge-base.md` — human-curated context. The agent reads
   it, never writes to it.
-- `context/context-lake.md` — agent-written context. Auto-appended-to
-  after every `approve`, auto-loaded (alongside the knowledge base) on
+- `context/context-lake.md` — agent-written context. After `approve`,
+  the harness-agent appends to this itself per
+  `skills/update-context-lake.md`, then calls `log-context-update` to
+  record that it did. Auto-loaded (alongside the knowledge base) on
   every `draft`.
 - `requests/todo-app.md` + `requests/todo-app-notes.md` — two example
   input docs with slightly conflicting info, to demo how the agent
@@ -56,8 +59,11 @@ npm run draft -- requests/todo-app.md requests/todo-app-notes.md --title "Todo A
 # 2. Read the draft (includes the feature matrix)
 npm run show -- a1b2c3d4
 
-# 3a. Approve it — this also triggers the context lake update
+# 3a. Approve it — writes the audit record only
 npm run approve -- a1b2c3d4 --by "jane.ba" --note "Looks good"
+# → then, as the harness-agent: follow skills/update-context-lake.md
+#   yourself, append to context/context-lake.md, and record it:
+npm run log-context-update -- a1b2c3d4 --by "jane.ba" --note "..."
 
 # 3b. OR request changes (agent redrafts with your feedback)
 npm run request-changes -- a1b2c3d4 --by "jane.ba" \
@@ -77,7 +83,9 @@ Every run writes:
 - `artifacts/<id>/requirements.v<N>.md` — each draft, versioned
 - `artifacts/<id>/requirements.latest.json` — current status + metadata
 - `audit/log.jsonl` — one line per event (created, drafted, approved,
-  changes requested, context lake updated)
+  changes requested, context lake updated); the approved and
+  context-lake-updated events are each written by their own dedicated,
+  deterministic subcommand (`approve`, `log-context-update`)
 - `context/context-lake.md` — grows only after approval, only with
   durable knowledge (see the skill's rules on what counts)
 

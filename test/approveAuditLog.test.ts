@@ -14,35 +14,97 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC_DIR = path.resolve(__dirname, "..", "src");
 
-test("approve writes exactly one ba_approved_requirements audit record", async () => {
+test("approve writes exactly one ba_approved_requirements audit record and does not touch the context lake", async () => {
   const dir = await withTempProjectDir();
   await seedInReviewWorkItem(dir, {
     id: "wi-test-1",
     title: "Test work item",
     content: "# Requirements\n\nSome content.",
   });
-  const stub = await startStubOllama();
 
-  try {
-    const result = await runCli(["approve", "wi-test-1", "-b", "reviewer"], {
-      cwd: dir,
-      ollamaBaseUrl: stub.url,
-    });
+  // No Ollama stub needed: approve no longer calls a model at all.
+  const result = await runCli(["approve", "wi-test-1", "-b", "reviewer"], {
+    cwd: dir,
+  });
 
-    assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+  assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+  assert.match(
+    result.stdout,
+    /Next step: follow skills\/update-context-lake\.md yourself to update the context lake for this work item\./,
+    "expected approve to print the next-step instruction"
+  );
 
-    const events = await readAuditLines(dir);
-    const approvals = events.filter((e) => e.action === "ba_approved_requirements");
-    assert.equal(approvals.length, 1, "expected exactly one approval audit record");
+  const events = await readAuditLines(dir);
+  const approvals = events.filter((e) => e.action === "ba_approved_requirements");
+  assert.equal(approvals.length, 1, "expected exactly one approval audit record");
 
-    const [event] = approvals;
-    assert.equal(event.workItemId, "wi-test-1");
-    assert.equal(event.actor, "human:reviewer");
-    assert.equal(event.stage, "requirements");
-    assert.equal((event.detail as { version: number }).version, 1);
-  } finally {
-    await stub.close();
+  const [event] = approvals;
+  assert.equal(event.workItemId, "wi-test-1");
+  assert.equal(event.actor, "human:reviewer");
+  assert.equal(event.stage, "requirements");
+  assert.equal((event.detail as { version: number }).version, 1);
+
+  assert.ok(
+    !events.some((e) => e.action === "context_lake_updated"),
+    "approve must no longer write a context_lake_updated audit record itself"
+  );
+});
+
+test("log-context-update writes exactly one context_lake_updated audit record", async () => {
+  const dir = await withTempProjectDir();
+
+  const result = await runCli(
+    ["log-context-update", "wi-test-1", "-b", "reviewer", "-n", "added Task Management term"],
+    { cwd: dir }
+  );
+
+  assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+
+  const events = await readAuditLines(dir);
+  const updates = events.filter((e) => e.action === "context_lake_updated");
+  assert.equal(updates.length, 1, "expected exactly one context-lake-update audit record");
+
+  const [event] = updates;
+  assert.equal(event.workItemId, "wi-test-1");
+  assert.equal(event.actor, "agent:reviewer");
+  assert.equal(event.stage, "requirements");
+  assert.equal(
+    (event.detail as { note?: string }).note,
+    "added Task Management term"
+  );
+});
+
+test("the context-lake-update audit action is only ever assigned in one place in src/, inside the log-context-update command", async () => {
+  const files = (await fs.readdir(SRC_DIR)).filter((f) => f.endsWith(".ts"));
+  const actionAssignment = /action:\s*"context_lake_updated"/g;
+  let totalOccurrences = 0;
+  let cliSource = "";
+
+  for (const file of files) {
+    const content = await fs.readFile(path.join(SRC_DIR, file), "utf-8");
+    const matches = content.match(actionAssignment) ?? [];
+    totalOccurrences += matches.length;
+    if (file === "cli.ts") cliSource = content;
   }
+
+  assert.equal(
+    totalOccurrences,
+    1,
+    "expected the context-lake-update audit action to be assigned in exactly one place across src/"
+  );
+
+  const blockStart = cliSource.indexOf('.command("log-context-update');
+  assert.notEqual(blockStart, -1, "log-context-update command block not found in cli.ts");
+  const nextCommandStart = cliSource.indexOf('program\n  .command(', blockStart + 1);
+  const block = cliSource.slice(
+    blockStart,
+    nextCommandStart === -1 ? undefined : nextCommandStart
+  );
+
+  assert.ok(
+    block.includes("context_lake_updated"),
+    "the context-lake-update audit action string must live inside the log-context-update command block"
+  );
 });
 
 test("the approval audit action string is only ever assigned as an AuditEvent action in one place in src/, inside the approve command", async () => {
