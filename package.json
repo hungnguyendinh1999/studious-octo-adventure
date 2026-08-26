@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "create-work-item": "tsx src/cli.ts create-work-item",
+    "log-draft": "tsx src/cli.ts log-draft",
     "draft": "tsx src/cli.ts draft",
     "show": "tsx src/cli.ts show",
     "approve": "tsx src/cli.ts approve",

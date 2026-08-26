@@ -25,7 +25,11 @@ approval gate → context lake update.
 - **Audit-log write is structurally enforced.** Approval must trigger a
   callable CLI subcommand that performs the JSONL write — never left to
   agent discretion, never invoked implicitly elsewhere in the flow. This
-  is the guarantee that survives even if agent behavior drifts.
+  is the guarantee that survives even if agent behavior drifts. The same
+  rule now covers every state transition in the daily flow:
+  `create-work-item`, `log-draft`, `approve`, `request-changes`, and
+  `log-context-update` are each a deterministic subcommand with no model
+  call in it. The agent does the thinking; the CLI does the recording.
 - **Approval signal is the literal word "approve" or "approved."** No
   fuzzy matching, no inferred sentiment.
 - **BRD "location" is a folder of one or more documents**, not a single

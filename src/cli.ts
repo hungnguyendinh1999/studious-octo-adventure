@@ -27,6 +27,85 @@ async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
 }
 
 program
+  .command("create-work-item <location>")
+  .description(
+    "Mint a work item from a folder of raw input documents (BRD, notes, etc.) and " +
+      "write the audit record. Deterministic — no model call; the harness-agent " +
+      "drafts the PRD itself per skills/draft-requirements.md, then calls log-draft."
+  )
+  .option("-t, --title <title>", "Short title for the work item", "Untitled")
+  .action(async (location: string, opts: { title: string }) => {
+    const inputDocs = await loadInputDocsFromFolder(path.resolve(location));
+
+    const workItem: WorkItem = {
+      id: nanoid(8),
+      title: opts.title,
+      rawRequest: inputDocs.map((d) => `--- ${d.filename} ---\n${d.content}`).join("\n\n"),
+      createdAt: new Date().toISOString(),
+    };
+    await store.saveWorkItem(workItem);
+    await appendAuditEvent({
+      timestamp: workItem.createdAt,
+      workItemId: workItem.id,
+      actor: "human:requester",
+      action: "work_item_created",
+      stage: "requirements",
+      detail: { inputFiles: inputDocs.map((d) => d.filename) },
+    });
+
+    console.log(
+      `Work item ${workItem.id} created from ${inputDocs.length} input doc(s) in ${location}.`
+    );
+    console.log(
+      "Next step: follow skills/draft-requirements.md yourself to draft the PRD, " +
+        `then record it with: log-draft ${workItem.id} --file <path>`
+    );
+  });
+
+program
+  .command("log-draft <workItemId>")
+  .description(
+    "Save a PRD you drafted yourself as the next version and write the audit " +
+      "record. Deterministic — no model call. Version is derived from what's " +
+      "already stored, so a re-draft after request-changes becomes the next version."
+  )
+  .requiredOption("-f, --file <path>", "Path to the drafted PRD markdown file")
+  .option("-b, --by <name>", "Which agent produced the draft", "ba-agent")
+  .action(async (workItemId: string, opts: { file: string; by: string }) => {
+    // Fails loudly if the work item doesn't exist — a draft with no work item
+    // behind it would leave an audit trail nothing can be reconciled against.
+    await store.loadWorkItem(workItemId);
+    const content = await fs.readFile(path.resolve(opts.file), "utf-8");
+
+    const prev = await store
+      .loadLatestRequirements(workItemId)
+      .catch(() => null);
+    const artifact: RequirementsArtifact = {
+      workItemId,
+      version: prev ? prev.version + 1 : 1,
+      content,
+      status: "in_review",
+      createdAt: new Date().toISOString(),
+    };
+    await store.saveRequirements(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.createdAt,
+      workItemId,
+      actor: `agent:${opts.by}`,
+      action: "agent_drafted_requirements",
+      stage: "requirements",
+      detail: { version: artifact.version },
+    });
+
+    console.log(
+      `Draft v${artifact.version} recorded: artifacts/${workItemId}/requirements.v${artifact.version}.md`
+    );
+    console.log(
+      `Next step: the BA/PO reviews it (show ${workItemId}), then approve or request-changes.`
+    );
+  });
+
+program
   .command("draft <location>")
   .description(
     "[EVAL HARNESS ONLY] Run the BA agent on a folder of raw input documents via " +

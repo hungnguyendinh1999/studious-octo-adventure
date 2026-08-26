@@ -32,9 +32,9 @@ below.
 - `src/auditLog.ts` — append-only JSONL log (`audit/log.jsonl`), standing
   in for the insert-only Postgres table (and eventually immudb) from the
   design doc.
-- `src/cli.ts` — entrypoint. Deterministic gate writes (`approve`,
-  `log-context-update`) plus read/utility verbs (`show`, `list`,
-  `audit`, `request-changes`), and the eval-only `draft`.
+- `src/cli.ts` — entrypoint. Deterministic writes (`create-work-item`,
+  `log-draft`, `approve`, `request-changes`, `log-context-update`) plus
+  read verbs (`show`, `list`, `audit`), and the eval-only `draft`.
 - `context/knowledge-base.md` — human-curated context. The agent reads
   it, never writes to it.
 - `context/context-lake.md` — agent-written context. After `approve`,
@@ -65,22 +65,33 @@ writes it into `artifacts/`.
 
 The CLI's job in that flow is the **deterministic writes only** — the
 parts that must happen identically every time, regardless of which
-model or harness is driving:
+model or harness is driving. None of these call a model:
 
 \`\`\`bash
-# Gate: approve. Writes the audit record. Nothing else.
+# 1. Mint a work item from the BRD folder
+npm run create-work-item -- requests --title "Todo App"
+# → prints a work item id, e.g. "a1b2c3d4"
+
+# 2. Draft the PRD yourself per skills/draft-requirements.md, then hand
+#    the file over to be versioned + logged
+npm run log-draft -- a1b2c3d4 --file /tmp/prd-draft.md
+
+# 3. BA/PO reviews it
+npm run show -- a1b2c3d4
+
+# 4a. Gate: approve. Writes the audit record. Nothing else.
 npm run approve -- a1b2c3d4 --by "jane.ba" --note "Looks good"
 # → then, as the harness-agent: follow skills/update-context-lake.md
 #   yourself, append to context/context-lake.md, and record that you did:
 npm run log-context-update -- a1b2c3d4 --by "jane.ba" --note "..."
 
-# Gate: request changes instead. Marks the draft changes_requested and
-# writes the audit record; you do the re-draft.
+# 4b. Gate: request changes instead. Marks the draft changes_requested
+#     and writes the audit record; you do the re-draft, then log-draft
+#     again (it auto-increments to v2).
 npm run request-changes -- a1b2c3d4 --by "jane.ba" \
   --note "Split the due-date story out separately"
 
-# Read a draft / see history / list work items
-npm run show -- a1b2c3d4
+# See history / list work items
 npm run audit -- a1b2c3d4
 npm run list
 \`\`\`
