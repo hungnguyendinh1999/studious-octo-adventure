@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import {
   withTempProjectDir,
   seedInReviewWorkItem,
-  startStubOllama,
   runCli,
   readAuditLines,
 } from "./helpers/harness.js";
@@ -145,33 +144,51 @@ test("the approval audit action string is only ever assigned as an AuditEvent ac
   );
 });
 
-test("request-changes writes ba_requested_changes, never ba_approved_requirements", async () => {
+test("request-changes writes ba_requested_changes, marks the artifact changes_requested, and re-drafts nothing itself", async () => {
   const dir = await withTempProjectDir();
   await seedInReviewWorkItem(dir, {
     id: "wi-test-2",
     title: "Test work item",
     content: "# Requirements\n\nSome content.",
   });
-  const stub = await startStubOllama();
 
-  try {
-    const result = await runCli(
-      ["request-changes", "wi-test-2", "-n", "please clarify scope"],
-      { cwd: dir, ollamaBaseUrl: stub.url }
-    );
+  // No Ollama stub: request-changes no longer calls a model either.
+  const result = await runCli(
+    ["request-changes", "wi-test-2", "-n", "please clarify scope", "-b", "reviewer"],
+    { cwd: dir }
+  );
 
-    assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+  assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+  assert.match(
+    result.stdout,
+    /Next step: follow skills\/draft-requirements\.md yourself to re-draft/,
+    "expected request-changes to print the next-step instruction"
+  );
 
-    const events = await readAuditLines(dir);
-    assert.ok(
-      events.some((e) => e.action === "ba_requested_changes"),
-      "expected a ba_requested_changes audit record"
-    );
-    assert.ok(
-      !events.some((e) => e.action === "ba_approved_requirements"),
-      "request-changes must never write an approval audit record"
-    );
-  } finally {
-    await stub.close();
-  }
+  const events = await readAuditLines(dir);
+  const requested = events.filter((e) => e.action === "ba_requested_changes");
+  assert.equal(requested.length, 1, "expected exactly one changes-requested audit record");
+  assert.equal(requested[0].actor, "human:reviewer");
+  assert.equal(
+    (requested[0].detail as { note: string }).note,
+    "please clarify scope"
+  );
+
+  assert.ok(
+    !events.some((e) => e.action === "ba_approved_requirements"),
+    "request-changes must never write an approval audit record"
+  );
+  assert.ok(
+    !events.some((e) => e.action === "agent_drafted_requirements"),
+    "request-changes must not claim a draft it did not produce"
+  );
+
+  const latest = JSON.parse(
+    await fs.readFile(
+      path.join(dir, "artifacts", "wi-test-2", "requirements.latest.json"),
+      "utf-8"
+    )
+  );
+  assert.equal(latest.status, "changes_requested");
+  assert.equal(latest.version, 1, "request-changes must not bump the version itself");
 });

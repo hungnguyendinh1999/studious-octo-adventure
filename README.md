@@ -74,7 +74,8 @@ npm run approve -- a1b2c3d4 --by "jane.ba" --note "Looks good"
 #   yourself, append to context/context-lake.md, and record that you did:
 npm run log-context-update -- a1b2c3d4 --by "jane.ba" --note "..."
 
-# Gate: request changes instead (re-drafts with your feedback)
+# Gate: request changes instead. Marks the draft changes_requested and
+# writes the audit record; you do the re-draft.
 npm run request-changes -- a1b2c3d4 --by "jane.ba" \
   --note "Split the due-date story out separately"
 

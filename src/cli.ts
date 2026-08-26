@@ -147,50 +147,35 @@ program
 
 program
   .command("request-changes <workItemId>")
-  .description("BA/PO gate: request changes; re-runs the BA agent with feedback")
+  .description(
+    "BA/PO gate: mark the latest draft as changes-requested and write the audit " +
+      "record. Does not re-draft — the harness-agent does that per " +
+      "skills/draft-requirements.md."
+  )
   .requiredOption("-n, --note <note>", "Feedback for the agent to address")
   .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
   .action(async (workItemId: string, opts: { note: string; by: string }) => {
-    const modelClient = new OllamaModelClient();
-    const prev = await store.loadLatestRequirements(workItemId);
-    const workItem = await store.loadWorkItem(workItemId);
-    const knowledgeBaseDocs = await loadContextFile(KNOWLEDGE_BASE_PATH);
-    const contextLakeDocs = await loadContextFile(CONTEXT_LAKE_PATH);
-
+    const artifact = await store.loadLatestRequirements(workItemId);
+    artifact.status = "changes_requested";
+    artifact.reviewedBy = opts.by;
+    artifact.reviewedAt = new Date().toISOString();
+    artifact.reviewNote = opts.note;
+    await store.saveRequirements(artifact);
     await appendAuditEvent({
-      timestamp: new Date().toISOString(),
+      timestamp: artifact.reviewedAt,
       workItemId,
       actor: `human:${opts.by}`,
       action: "ba_requested_changes",
       stage: "requirements",
-      detail: { version: prev.version, note: opts.note },
+      detail: { version: artifact.version, note: opts.note },
     });
-
-    console.log("Re-running BA agent with feedback...");
-    const inputDocs: LabeledDoc[] = [
-      { filename: "original-request.md", content: workItem.rawRequest },
-      { filename: `previous-draft-v${prev.version}.md`, content: prev.content },
-      { filename: "reviewer-feedback.md", content: opts.note },
-    ];
-    const content = await draftRequirements(modelClient, inputDocs, knowledgeBaseDocs, contextLakeDocs);
-
-    const artifact: RequirementsArtifact = {
-      workItemId,
-      version: prev.version + 1,
-      content,
-      status: "in_review",
-      createdAt: new Date().toISOString(),
-    };
-    await store.saveRequirements(artifact);
-    await appendAuditEvent({
-      timestamp: artifact.createdAt,
-      workItemId,
-      actor: "agent:ba-agent",
-      action: "agent_drafted_requirements",
-      stage: "requirements",
-      detail: { version: artifact.version, respondingToNote: opts.note },
-    });
-    console.log(`New draft written: artifacts/${workItemId}/requirements.v${artifact.version}.md`);
+    console.log(
+      `Changes requested on work item ${workItemId} (v${artifact.version}) by ${opts.by}.`
+    );
+    console.log(
+      "Next step: follow skills/draft-requirements.md yourself to re-draft " +
+        `v${artifact.version + 1} addressing this feedback.`
+    );
   });
 
 program
