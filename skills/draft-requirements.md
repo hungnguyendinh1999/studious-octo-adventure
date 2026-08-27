@@ -33,10 +33,21 @@ its source filename:
 already been provided to you as input (e.g. this repo's `draft` eval
 harness loads and passes both automatically), use what's provided as-is.
 Otherwise — for example if you're following this skill directly in your
-own AI harness rather than through that CLI — nothing loads them for
-you: read `context/knowledge-base.md` and `context/context-lake.md`
-yourself, in full, before proceeding. Never draft without having read
-both, one way or the other.
+own AI harness — nothing loads them for you: read
+`context/knowledge-base.md` and `context/context-lake.md` yourself, in
+full, before proceeding.
+
+If either file **exists but is empty or has nothing relevant**, proceed
+— propose your own module names and terminology and flag them as
+assumptions, per the rules below.
+
+If either file **does not exist at all**, stop before drafting and tell
+the human: this usually means the product hasn't been onboarded to this
+process yet. Do not silently draft with no context and do not create
+the files yourself — `context/knowledge-base.md` is human-curated only
+(see CLAUDE.md); ask the human whether to proceed with empty context
+(and, if so, whether to create empty placeholder files) or to hold off
+until the files exist.
 
 ## Output format
 
