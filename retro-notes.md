@@ -92,3 +92,48 @@ defects.
   twice from the same path silently increments the version with nothing
   recording which source file produced which version. Template works
   around this by convention (`drafts/<id>.v<n>.md`); nothing enforces it.
+
+## 2026-08-27 — Real-world skill test against DinoPamper; missing-knowledge-base gap found
+
+**What happened:** Ran `skills/draft-requirements.md` by hand against a
+real, messy soft-BRD from an unrelated project (DinoPamper, a baby-
+tracking app at `/Users/hungnguyen/Documents/Projects/DinoPamper`) to
+judge output quality, not just process mechanics. DinoPamper has no
+`context/` scaffolding at all, so `README.md`/`CLAUDE.md` were used as
+a stand-in knowledge base and the CLI (`create-work-item`/`log-draft`)
+was deliberately not run, to avoid writing ADLC scaffolding into an
+unrelated repo. Draft saved to
+`DinoPamper/docs/at-a-glance-dashboard-prd-draft.md` (not committed
+there — that repo's call).
+
+**Decisions made:**
+- Verifying a BRD's claims against actual source code (not just other
+  input docs) before drafting is worth doing and the skill doesn't
+  currently ask for it — this run caught three real conflicts (a
+  `milk` event type the codebase doesn't have; a sleep start/end split
+  the codebase doesn't have; a "server timestamp" reference in a
+  local-only, no-backend app) purely by reading `db/entries.ts`,
+  `lib/feedingEstimates.ts`, and `TimelineScreen.tsx` alongside the
+  request.
+- Confirmed: a repo with zero `context/` scaffolding is a real,
+  now-observed case, not hypothetical — DinoPamper is exactly that.
+
+**Open questions / follow-ups:**
+- **No handling for a missing (not just empty) knowledge base or
+  context lake.** `draft-requirements.md`'s "before drafting" instruction
+  only branches on already-provided-vs-not; it has no branch for the
+  file not existing at all. Today this means either silent
+  empty-context drafting (the eval-harness `draft` path swallows the
+  read error) or an ungrounded agent judgment call (what happened here).
+  Recommended fix, not yet applied: tooling may scaffold *empty* files
+  (shape only, header/format, no invented content — `knowledge-base.md`
+  stays human-curated per CLAUDE.md), and the skill should get an
+  explicit "file doesn't exist → stop and tell the human" instruction,
+  distinct from "file exists but is empty" (already logged above).
+  Deliberately not built as a new subcommand yet — one observed
+  instance, and the cheap version (a skill instruction) hasn't been
+  tried before reaching for automation.
+- Consider whether `skills/draft-requirements.md` should explicitly
+  invite checking source code for a target repo when one exists, given
+  how much it found here — currently that's not part of the skill, it
+  happened only because the agent (unprompted) chose to.
