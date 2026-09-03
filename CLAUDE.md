@@ -79,15 +79,51 @@ interface.
 
 ## Phases (this repo is Phase 1 only)
 
-1. **Requirements Analysis** (this repo) — BA agent, PRD, BA/PO gate
-2. **Design** (not built yet) — same flow, different skill + tools
-   (design specs, UI/UX), Reviewer gate
-3. **Coding** — task breakdown (human-gated) → test-first RED (CI-
+1. **Requirements Analysis** (this repo) - BA agent, PRD, BA/PO gate
+2. **Design** (this repo) - two independently-gated artifacts per work
+   item: a UX/UI Spec (skipped if the work item has no user-facing
+   surface) and a Technical/System Design (SSD/TDD content lives here;
+   requires real repo exploration, grounded in the actual code - see
+   `docs/adr/0002-technical-design-requires-repo-grounding-no-eval-harness.md`).
+   Each has its own sub-PIC Reviewer gate; both are required before Coding
+   when both apply. See
+   `docs/adr/0001-split-design-artifacts-and-gates.md` for why this isn't
+   one document like the PRD.
+3. **Coding** - task breakdown (human-gated) → test-first RED (CI-
    verified) → implement to GREEN (CI-verified) → PR review (human-gated)
 4. **Build/CI, SIT, UAT, deployment** — a validated DevSecOps pipeline
    already exists for Temenos T24 covering post-code-complete stages;
    don't redesign that, integrate with it later if this ever reaches
    core banking.
+
+## Design (Phase 2) - artifact types and gates
+
+- **Two artifact types per work item**, each independently versioned and
+  gated: `ux_spec` and `tech_design` (`DesignArtifact` in
+  `src/types.ts`). Not one unified doc - see
+  `docs/adr/0001-split-design-artifacts-and-gates.md`.
+- **UX/UI Spec is optional.** Skipped when the work item has no
+  user-facing surface (e.g. backend/API-only). Decided by whoever kicks
+  off Design, by reading the approved PRD - not enforced by any schema.
+- **UX drafted first, Technical Design references it** when both apply.
+  A Technical Design skill run without a UX spec (because none applies)
+  proceeds directly from the approved PRD.
+- **Technical Design requires real repo exploration** - it must be
+  grounded in the actual target-repo source, not just the PRD text. See
+  `docs/adr/0002-technical-design-requires-repo-grounding-no-eval-harness.md`
+  for why there's deliberately no `design` eval-harness command
+  analogous to `draft`.
+- **Reviewer is a sub-PIC per artifact type** (e.g. design lead for
+  `ux_spec`, tech lead/architect for `tech_design`), both accountable to
+  the work item's overall PIC (BA/PO). Same free-text `--by <name>` trust
+  model as Phase 1 - no roles config file for v1.
+- **Both gates required before Coding**, when both artifact types apply
+  to the work item.
+- Same deterministic-audit-subcommand pattern as Requirements:
+  `log-design-draft`, `approve-design`, `request-design-changes` each
+  take `--type ux|tech`. `log-context-update` now takes an optional
+  `--stage` flag (defaults to `requirements`) so a Design-triggered
+  context-lake update records `stage: "design"`.
 
 ## Conventions
 
