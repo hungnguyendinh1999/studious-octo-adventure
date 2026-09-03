@@ -29,7 +29,12 @@ text alone.
 - Knowledge base context (`context/knowledge-base.md`) and context lake
   context (`context/context-lake.md`) - read both yourself if not already
   provided. If either file does not exist at all, stop and tell the human,
-  same rule as `skills/draft-requirements.md`.
+  same rule as `skills/draft-requirements.md` - unless a prior approved
+  artifact in this same work item's chain (e.g. the PRD) already documents a
+  stand-in for missing scaffolding (what stood in for the knowledge base,
+  how a missing context lake was treated). If so, follow that same stand-in
+  rather than re-raising the stop condition - don't make every stage re-ask
+  a question the work item already answered.
 - If this is a revision, you will also receive the previous version and a
   reviewer's feedback. Address the feedback directly.
 
@@ -71,6 +76,13 @@ this can move to Coding.
   already settled (or flagged) at the Requirements stage. If the PRD is
   silent on something this design needs to assume, flag it in Open
   Questions.
+- A PRD-flagged data-model gap is a different thing from an invented
+  business rule: proposing a concrete schema/data-model resolution is
+  exactly what the Data Model section exists to do, even when the PRD
+  explicitly left the model unresolved. Flag the proposal in Open Questions
+  as a recommendation for the tech lead to confirm, not as a silent
+  resolution of the PRD's gap - but don't leave the Data Model section empty
+  because the PRD didn't hand you the answer.
 - Prefer reuse over invention: extending an existing module/endpoint beats
   proposing a parallel new one, unless there's a real reason not to (state
   the reason in Alternatives Considered).
