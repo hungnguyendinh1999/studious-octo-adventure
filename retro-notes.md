@@ -137,3 +137,49 @@ there — that repo's call).
   invite checking source code for a target repo when one exists, given
   how much it found here — currently that's not part of the skill, it
   happened only because the agent (unprompted) chose to.
+
+## 2026-09-03 — Designed and built Phase 2 (Design); dogfood test found 4 skill-file gaps
+
+**What happened:** Grilled Phase 2 (Design) via `/grill-with-docs`, landing
+on: two independently-gated artifact types per Work Item (UX/UI Spec,
+Technical/System Design), sub-PIC reviewers per type, repo-grounding
+required for Technical Design. Wrote 2 ADRs + `context/CONTEXT.md`, an
+implementation plan, executed via subagent-driven-development (9 tasks +
+final whole-branch review + fix wave), shipped as PR #1. Ran a cold-agent
+dogfood test of the Design skill files against DinoPamper's real
+"at-a-glance dashboard" PRD, found 4 concrete skill-file gaps, fixed them
+in PR #2.
+
+**Decisions made:**
+- Design artifact = two types, not one doc: `ux_spec` (skipped when no
+  user-facing surface) and `tech_design` (always required, must be
+  grounded in real repo exploration) — see ADR 0001/0002.
+- Reviewer = sub-PIC per artifact type, both accountable to the Work
+  Item's overall PIC (BA/PO); stayed free-text `--by <name>`, no roles
+  config file for v1.
+- No `design` eval-harness command (mirrors `draft`) — `ModelClient`
+  can't do repo exploration without an Agent SDK lift not worth it yet.
+- `log-context-update` gained an optional `--stage` flag (default
+  `requirements`, backward compatible) so Design-triggered context-lake
+  updates record `stage: "design"`.
+- Repo now has a remote
+  (`git@github.com:hungnguyendinh1999/studious-octo-adventure.git`) —
+  was purely local before this session.
+
+**Open questions / follow-ups:**
+- **Recurring gap (2nd time now).** The Design skill files' "context/
+  scaffolding missing → stop" rule had no branch for a prior approved
+  artifact already documenting a stand-in. Fixed for Design in PR #2 —
+  `skills/draft-requirements.md` (Phase 1) still has the identical
+  unfixed gap, since this session's fix was scoped to Design only.
+- **Phase 3 not designed yet.** CLAUDE.md only settles the four-step
+  shape (task breakdown → RED (CI-verified) → GREEN (CI-verified) → PR
+  review). Two things Phase 2's own pattern doesn't answer for Phase 3:
+  who the PIC is for each gate, and how RED/GREEN's CI-verification
+  actually gets wired in — this is the first stage where a gate isn't
+  just human-approve, it needs to talk to a real test runner. Needs its
+  own grilling session before implementation, same as Phase 2 got.
+- Two Minor findings parked (not fixed) from Phase 2's final review: a
+  stray `--` separator at `src/cli.ts:366`, and "Phase 1" still in
+  `CLAUDE.md`/`README.md`'s document *titles* (content is accurate,
+  just the H1).
