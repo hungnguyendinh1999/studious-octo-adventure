@@ -78,3 +78,23 @@ test("log-design-draft rejects an unknown --type", async () => {
   assert.notEqual(result.exitCode, 0, "expected a non-zero exit for an invalid --type");
   assert.match(result.stderr, /Allowed choices are ux, tech/);
 });
+
+test("show-design prints the latest content and status for the requested type", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+  await fs.writeFile(path.join(dir, "tech.md"), "# Technical Design\n\nArchitecture overview.");
+  await runCli(["log-design-draft", id, "--file", "tech.md", "--type", "tech"], { cwd: dir });
+
+  const result = await runCli(["show-design", id, "--type", "tech"], { cwd: dir });
+  assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+  assert.match(result.stdout, /Status: in_review {2}\(v1\)/);
+  assert.match(result.stdout, /Architecture overview\./);
+});
+
+test("show-design errors clearly when that type has no draft yet", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+
+  const result = await runCli(["show-design", id, "--type", "ux"], { cwd: dir });
+  assert.notEqual(result.exitCode, 0, "expected a non-zero exit when no ux_spec exists yet");
+});

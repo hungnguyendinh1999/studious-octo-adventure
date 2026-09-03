@@ -317,6 +317,17 @@ program
   });
 
 program
+  .command("show-design <workItemId>")
+  .description("Print the latest design artifact (UX spec or technical/system design) for a work item")
+  .addOption(designTypeOption())
+  .action(async (workItemId: string, opts: { type: "ux" | "tech" }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    console.log(`Status: ${artifact.status}  (v${artifact.version})\n`);
+    console.log(artifact.content);
+  });
+
+program
   .command("list")
   .description("List all work items and their current status")
   .action(async () => {

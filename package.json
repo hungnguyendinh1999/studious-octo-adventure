@@ -7,6 +7,7 @@
     "create-work-item": "tsx src/cli.ts create-work-item",
     "log-draft": "tsx src/cli.ts log-draft",
     "log-design-draft": "tsx src/cli.ts log-design-draft",
+    "show-design": "tsx src/cli.ts show-design",
     "draft": "tsx src/cli.ts draft",
     "show": "tsx src/cli.ts show",
     "approve": "tsx src/cli.ts approve",
