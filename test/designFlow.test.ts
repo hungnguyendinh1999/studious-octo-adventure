@@ -97,6 +97,15 @@ test("show-design errors clearly when that type has no draft yet", async () => {
 
   const result = await runCli(["show-design", id, "--type", "ux"], { cwd: dir });
   assert.notEqual(result.exitCode, 0, "expected a non-zero exit when no ux_spec exists yet");
+  assert.match(
+    result.stderr,
+    /ENOENT/,
+    "expected a clean, recognizable error message on stderr"
+  );
+  assert.ok(
+    !result.stderr.includes("at ") && !result.stderr.includes("node:internal"),
+    `expected no raw stack trace on stderr, got:\n${result.stderr}`
+  );
 });
 
 test("approve-design marks the ux_spec approved and logs design_approved with stage design", async () => {

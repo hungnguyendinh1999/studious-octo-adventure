@@ -225,7 +225,11 @@ program
   )
   .option("-b, --by <name>", "Who/what performed the update", "context-lake-agent")
   .option("-n, --note <note>", "Optional summary of what was added")
-  .option("-s, --stage <stage>", "Which stage's approval triggered this update", "requirements")
+  .addOption(
+    new Option("-s, --stage <stage>", "Which stage's approval triggered this update")
+      .choices(["requirements", "design"])
+      .default("requirements")
+  )
   .action(async (workItemId: string, opts: { by: string; note?: string; stage: string }) => {
     await appendAuditEvent({
       timestamp: new Date().toISOString(),
@@ -288,7 +292,10 @@ program
 
     const prev = await store
       .loadLatestDesignArtifact(workItemId, type)
-      .catch(() => null);
+      .catch((err) => {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw err;
+      });
     const artifact: DesignArtifact = {
       workItemId,
       type,
@@ -391,7 +398,7 @@ program
     );
     console.log(
       `Next step: re-draft v${artifact.version + 1} addressing this feedback, then ` +
-        `log-design-draft -- ${workItemId} --type ${opts.type}.`
+        `log-design-draft ${workItemId} --type ${opts.type}.`
     );
   });
 
@@ -421,4 +428,7 @@ program
     }
   });
 
-program.parseAsync(process.argv);
+program.parseAsync(process.argv).catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
