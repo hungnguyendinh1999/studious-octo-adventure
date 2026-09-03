@@ -202,3 +202,67 @@ test("log-context-update records stage design when passed explicitly", async () 
   assert.equal(events[0].stage, "design");
   assert.equal(events[0].action, "context_lake_updated");
 });
+
+test("full two-gate design flow: UX approved, then Technical Design approved, independently", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+
+  // UX gate
+  await fs.writeFile(path.join(dir, "ux.md"), "# UX Spec\n\nOne screen, one flow.");
+  await runCli(["log-design-draft", id, "--file", "ux.md", "--type", "ux"], { cwd: dir });
+  await runCli(["approve-design", id, "--type", "ux", "-b", "design-lead"], { cwd: dir });
+  await runCli(
+    [
+      "log-context-update",
+      id,
+      "--by",
+      "design-lead",
+      "--stage",
+      "design",
+      "--note",
+      "documented empty-state convention",
+    ],
+    { cwd: dir }
+  );
+
+  // Technical Design gate, independent of the UX gate above
+  await fs.writeFile(path.join(dir, "tech.md"), "# Technical Design\n\nExtends the existing search endpoint.");
+  await runCli(["log-design-draft", id, "--file", "tech.md", "--type", "tech"], { cwd: dir });
+  await runCli(["approve-design", id, "--type", "tech", "-b", "tech-lead"], { cwd: dir });
+  await runCli(
+    [
+      "log-context-update",
+      id,
+      "--by",
+      "tech-lead",
+      "--stage",
+      "design",
+      "--note",
+      "documented filter query param",
+    ],
+    { cwd: dir }
+  );
+
+  const ux = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-ux.latest.json"), "utf-8")
+  );
+  const tech = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-tech.latest.json"), "utf-8")
+  );
+  assert.equal(ux.status, "approved");
+  assert.equal(ux.reviewedBy, "design-lead");
+  assert.equal(tech.status, "approved");
+  assert.equal(tech.reviewedBy, "tech-lead");
+
+  const events = await readAuditLines(dir);
+  const designStageEvents = events.filter((e) => e.stage === "design");
+  const actions = designStageEvents.map((e) => e.action);
+  assert.deepEqual(actions, [
+    "agent_drafted_design",
+    "design_approved",
+    "context_lake_updated",
+    "agent_drafted_design",
+    "design_approved",
+    "context_lake_updated",
+  ]);
+});
