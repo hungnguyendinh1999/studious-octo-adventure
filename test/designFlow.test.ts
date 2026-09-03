@@ -140,3 +140,33 @@ test("approving tech_design does not affect the ux_spec gate", async () => {
   );
   assert.equal(ux.status, "in_review", "ux_spec gate must stay independent of the tech_design gate");
 });
+
+test("request-design-changes marks changes_requested, and the next log-design-draft becomes v2", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+  await fs.writeFile(path.join(dir, "tech-v1.md"), "# Tech Design v1");
+  await runCli(["log-design-draft", id, "--file", "tech-v1.md", "--type", "tech"], { cwd: dir });
+
+  const requested = await runCli(
+    ["request-design-changes", id, "--type", "tech", "-n", "cover the pagination case"],
+    { cwd: dir }
+  );
+  assert.equal(requested.exitCode, 0, `expected clean exit, got stderr:\n${requested.stderr}`);
+
+  const afterRequest = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-tech.latest.json"), "utf-8")
+  );
+  assert.equal(afterRequest.status, "changes_requested");
+
+  await fs.writeFile(path.join(dir, "tech-v2.md"), "# Tech Design v2, revised");
+  await runCli(["log-design-draft", id, "--file", "tech-v2.md", "--type", "tech"], { cwd: dir });
+
+  const latest = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-tech.latest.json"), "utf-8")
+  );
+  assert.equal(latest.version, 2);
+  assert.equal(latest.status, "in_review");
+
+  const events = await readAuditLines(dir);
+  assert.ok(events.some((e) => e.action === "design_changes_requested"));
+});

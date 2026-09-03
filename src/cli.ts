@@ -360,6 +360,41 @@ program
   });
 
 program
+  .command("request-design-changes <workItemId>")
+  .description(
+    "Reviewer gate: mark the latest design artifact of the given type as " +
+      "changes-requested and write the audit record. Does not re-draft — the " +
+      "harness-agent does that per the relevant draft-design-*.md skill."
+  )
+  .addOption(designTypeOption())
+  .requiredOption("-n, --note <note>", "Feedback for the agent to address")
+  .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
+  .action(async (workItemId: string, opts: { type: "ux" | "tech"; note: string; by: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    artifact.status = "changes_requested";
+    artifact.reviewedBy = opts.by;
+    artifact.reviewedAt = new Date().toISOString();
+    artifact.reviewNote = opts.note;
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.reviewedAt,
+      workItemId,
+      actor: `human:${opts.by}`,
+      action: "design_changes_requested",
+      stage: "design",
+      detail: { type, version: artifact.version, note: opts.note },
+    });
+    console.log(
+      `Changes requested on work item ${workItemId} design (${opts.type}, v${artifact.version}) by ${opts.by}.`
+    );
+    console.log(
+      `Next step: re-draft v${artifact.version + 1} addressing this feedback, then ` +
+        `log-design-draft -- ${workItemId} --type ${opts.type}.`
+    );
+  });
+
+program
   .command("list")
   .description("List all work items and their current status")
   .action(async () => {

@@ -9,6 +9,7 @@
     "log-design-draft": "tsx src/cli.ts log-design-draft",
     "show-design": "tsx src/cli.ts show-design",
     "approve-design": "tsx src/cli.ts approve-design",
+    "request-design-changes": "tsx src/cli.ts request-design-changes",
     "draft": "tsx src/cli.ts draft",
     "show": "tsx src/cli.ts show",
     "approve": "tsx src/cli.ts approve",
