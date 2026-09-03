@@ -1,11 +1,12 @@
 # ADLC Phase 1 — BA Agent (Todo App Demo)
 
-Runnable Phase 1 of the ADLC: a folder of loose input documents (BRD,
-notes, whatever exists) → agent-drafted PRD → BA/PO gate (approve or
+Runnable Phase 1 and Phase 2 of the ADLC: a folder of loose input documents
+(BRD, notes, whatever exists) → agent-drafted PRD → BA/PO gate (approve or
 request changes) → approved content feeds the context lake for future
-runs. Intentionally thin — a CLI, a local file-based artifact store, and
-an append-only audit log. Every piece is designed to be swapped out; see
-below.
+runs, then a UX/UI Spec and a Technical/System Design → their own Reviewer
+gates → context lake again. Intentionally thin — a CLI, a local file-based
+artifact store, and an append-only audit log. Every piece is designed to
+be swapped out; see below.
 
 ## What's here
 
@@ -17,6 +18,13 @@ below.
 - `skills/update-context-lake.md` — a second, narrower skill: extracts
   only durable, reusable knowledge from an *approved* requirements doc.
   Runs after `approve`, never before.
+- `skills/draft-design-ux.md` - the UX/UI Spec skill. Only runs when the
+  work item has a user-facing surface.
+- `skills/draft-design-tech.md` - the Technical/System Design skill.
+  Requires reading the actual target repo's source before drafting.
+- `skills/instruction-template-design.md` - paste-in template for the
+  Design flow, mirroring `skills/instruction-template.md` for
+  Requirements.
 - `src/baAgent.ts` — feeds the requirements skill to a `ModelClient`,
   given labeled input docs, knowledge base docs, and context lake docs.
   Eval harness only (see below).
@@ -32,9 +40,12 @@ below.
 - `src/auditLog.ts` — append-only JSONL log (`audit/log.jsonl`), standing
   in for the insert-only Postgres table (and eventually immudb) from the
   design doc.
-- `src/cli.ts` — entrypoint. Deterministic writes (`create-work-item`,
-  `log-draft`, `approve`, `request-changes`, `log-context-update`) plus
-  read verbs (`show`, `list`, `audit`), and the eval-only `draft`.
+- `src/cli.ts` - entrypoint. Deterministic writes for Requirements
+  (`create-work-item`, `log-draft`, `approve`, `request-changes`) and for
+  Design (`log-design-draft`, `approve-design`, `request-design-changes`,
+  each taking `--type ux|tech`), a shared `log-context-update` (now
+  stage-aware), read verbs (`show`, `show-design`, `list`, `audit`), and
+  the eval-only `draft`.
 - `context/knowledge-base.md` — human-curated context. The agent reads
   it, never writes to it.
 - `context/context-lake.md` — agent-written context. After `approve`,
@@ -102,6 +113,39 @@ plain subcommands with no model call in them, so the trail survives
 even if agent behavior drifts. See CLAUDE.md's "audit-log write is
 structurally enforced" decision.
 
+## Design (Phase 2) daily use
+
+Same shape as Requirements: your own AI harness does the drafting, the CLI
+does the deterministic writes. Two independently-gated artifact types per
+work item - see `docs/adr/0001-split-design-artifacts-and-gates.md` for why.
+
+\`\`\`bash
+# 0. Confirm requirements are approved
+npm run show -- a1b2c3d4
+
+# 1. UX/UI Spec (skip if this work item has no user-facing surface)
+#    Draft per skills/draft-design-ux.md, then:
+npm run log-design-draft -- a1b2c3d4 --file /tmp/ux-draft.md --type ux
+npm run show-design -- a1b2c3d4 --type ux
+npm run approve-design -- a1b2c3d4 --type ux --by "design.lead"
+npm run log-context-update -- a1b2c3d4 --by "design.lead" --stage design --note "..."
+
+# 2. Technical/System Design - requires reading the actual target repo
+#    first (skills/draft-design-tech.md enforces this), then:
+npm run log-design-draft -- a1b2c3d4 --file /tmp/tech-draft.md --type tech
+npm run show-design -- a1b2c3d4 --type tech
+npm run approve-design -- a1b2c3d4 --type tech --by "tech.lead"
+npm run log-context-update -- a1b2c3d4 --by "tech.lead" --stage design --note "..."
+
+# Request changes instead of approving, for either type:
+npm run request-design-changes -- a1b2c3d4 --type tech \
+  --by "tech.lead" -n "cover the pagination case"
+\`\`\`
+
+Both gates are required before Coding, when both artifact types apply to
+the work item (Technical Design always does; the UX/UI Spec only when
+there's a user-facing surface).
+
 ## Evaluation harness (internal, not the daily flow)
 
 `npm run draft` and the `ModelClient` interface behind it exist to
@@ -127,6 +171,10 @@ npm run show -- a1b2c3d4
   deterministic subcommand (`approve`, `log-context-update`)
 - `context/context-lake.md` — grows only after approval, only with
   durable knowledge (see the skill's rules on what counts)
+- `artifacts/<id>/design-ux.v<N>.md` / `design-tech.v<N>.md` - each
+  design draft, versioned independently per type
+- `artifacts/<id>/design-ux.latest.json` / `design-tech.latest.json` -
+  current status + metadata per type
 
 ## What's swappable (by design)
 
@@ -142,7 +190,7 @@ None of these swaps require changing `cli.ts`'s command logic — only the
 implementation behind `DocumentStore`, the log writer, or how knowledge
 base and context lake docs get loaded.
 
-## Known gaps (expected — this is Phase 1 only)
+## Known gaps
 
 - PRD is markdown-only, not machine-parseable yet — fine for human
   review, will need a structured (JSON) form once Phase 3 needs to
@@ -151,8 +199,13 @@ base and context lake docs get loaded.
   flow — worth revisiting once you have real cycle-time data)
 - Knowledge base is a flat file passed in full every run — no retrieval,
   no de-duplication beyond what the skill's own rules catch
-- Single BA agent + context-lake agent only — Design (Phase 2) and Coding
-  (Phase 3) agents aren't built yet, though they'll follow the same
-  skill + `AgentStep`-style pattern
+- Coding (Phase 3) isn't built yet, though it'll follow the same
+  skill + deterministic-subcommand pattern as Requirements and Design
+- No roles/PIC config - reviewer identity for both Design gates is
+  free-text (`--by <name>`), same trust model as Requirements
 - No web UI — CLI only, on purpose, to keep this cheap to throw away or
   rework
+- `npm run audit` doesn't distinguish which design artifact type (`ux_spec`
+  vs `tech_design`) each Design-stage audit line refers to — the data is in
+  `detail.type` in the JSONL, just not printed. A future pass could add a
+  `type`/`detail` column to the `audit` command's output.

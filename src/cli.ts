@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import "dotenv/config";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { nanoid } from "nanoid";
 import { promises as fs } from "fs";
 import path from "path";
@@ -9,7 +9,7 @@ import { appendAuditEvent, readAuditLog } from "./auditLog.js";
 import { draftRequirements, type LabeledDoc } from "./baAgent.js";
 import { loadInputDocsFromFolder } from "./inputLoader.js";
 import { OllamaModelClient } from "./modelClient.js";
-import type { RequirementsArtifact, WorkItem } from "./types.js";
+import type { DesignArtifact, DesignArtifactType, RequirementsArtifact, WorkItem } from "./types.js";
 
 const store = new LocalDocumentStore();
 const program = new Command();
@@ -24,6 +24,19 @@ async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
   } catch {
     return [];
   }
+}
+
+function designTypeOption(): Option {
+  return new Option(
+    "-t, --type <type>",
+    '"ux" (UX/UI spec) or "tech" (technical/system design)'
+  )
+    .choices(["ux", "tech"])
+    .makeOptionMandatory();
+}
+
+function toDesignArtifactType(flag: "ux" | "tech"): DesignArtifactType {
+  return flag === "ux" ? "ux_spec" : "tech_design";
 }
 
 program
@@ -212,13 +225,18 @@ program
   )
   .option("-b, --by <name>", "Who/what performed the update", "context-lake-agent")
   .option("-n, --note <note>", "Optional summary of what was added")
-  .action(async (workItemId: string, opts: { by: string; note?: string }) => {
+  .addOption(
+    new Option("-s, --stage <stage>", "Which stage's approval triggered this update")
+      .choices(["requirements", "design"])
+      .default("requirements")
+  )
+  .action(async (workItemId: string, opts: { by: string; note?: string; stage: string }) => {
     await appendAuditEvent({
       timestamp: new Date().toISOString(),
       workItemId,
       actor: `agent:${opts.by}`,
       action: "context_lake_updated",
-      stage: "requirements",
+      stage: opts.stage,
       detail: { note: opts.note },
     });
     console.log(`Context-lake update for work item ${workItemId} recorded.`);
@@ -258,6 +276,133 @@ program
   });
 
 program
+  .command("log-design-draft <workItemId>")
+  .description(
+    "Save a design artifact (UX spec or technical/system design) you drafted yourself " +
+      "as the next version for its type and write the audit record. Deterministic - " +
+      "no model call. Version is tracked independently per artifact type."
+  )
+  .requiredOption("-f, --file <path>", "Path to the drafted design markdown file")
+  .addOption(designTypeOption())
+  .option("-b, --by <name>", "Which agent produced the draft", "design-agent")
+  .action(async (workItemId: string, opts: { file: string; type: "ux" | "tech"; by: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    await store.loadWorkItem(workItemId);
+    const content = await fs.readFile(path.resolve(opts.file), "utf-8");
+
+    const prev = await store
+      .loadLatestDesignArtifact(workItemId, type)
+      .catch((err) => {
+        if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+        throw err;
+      });
+    const artifact: DesignArtifact = {
+      workItemId,
+      type,
+      version: prev ? prev.version + 1 : 1,
+      content,
+      status: "in_review",
+      createdAt: new Date().toISOString(),
+    };
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.createdAt,
+      workItemId,
+      actor: `agent:${opts.by}`,
+      action: "agent_drafted_design",
+      stage: "design",
+      detail: { type, version: artifact.version },
+    });
+
+    console.log(
+      `Design draft (${opts.type}) v${artifact.version} recorded: ` +
+        `artifacts/${workItemId}/design-${opts.type}.v${artifact.version}.md`
+    );
+    console.log(
+      `Next step: the Reviewer for this artifact type reviews it (show-design ${workItemId} --type ${opts.type}), ` +
+        "then approve-design or request-design-changes."
+    );
+  });
+
+program
+  .command("show-design <workItemId>")
+  .description("Print the latest design artifact (UX spec or technical/system design) for a work item")
+  .addOption(designTypeOption())
+  .action(async (workItemId: string, opts: { type: "ux" | "tech" }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    console.log(`Status: ${artifact.status}  (v${artifact.version})\n`);
+    console.log(artifact.content);
+  });
+
+program
+  .command("approve-design <workItemId>")
+  .description(
+    "Reviewer gate: mark the latest design artifact of the given type approved and " +
+      "write the audit record. Does not touch the context lake - see log-context-update."
+  )
+  .addOption(designTypeOption())
+  .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
+  .option("-n, --note <note>", "Optional review note")
+  .action(async (workItemId: string, opts: { type: "ux" | "tech"; by: string; note?: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    artifact.status = "approved";
+    artifact.reviewedBy = opts.by;
+    artifact.reviewedAt = new Date().toISOString();
+    artifact.reviewNote = opts.note;
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.reviewedAt,
+      workItemId,
+      actor: `human:${opts.by}`,
+      action: "design_approved",
+      stage: "design",
+      detail: { type, version: artifact.version, note: opts.note },
+    });
+    console.log(`Work item ${workItemId} design (${opts.type}) approved by ${opts.by}.`);
+    console.log(
+      "Next step: follow skills/update-context-lake.md yourself to update the context " +
+        `lake for this work item, then run log-context-update -- ${workItemId} --stage design.`
+    );
+  });
+
+program
+  .command("request-design-changes <workItemId>")
+  .description(
+    "Reviewer gate: mark the latest design artifact of the given type as " +
+      "changes-requested and write the audit record. Does not re-draft - the " +
+      "harness-agent does that per the relevant draft-design-*.md skill."
+  )
+  .addOption(designTypeOption())
+  .requiredOption("-n, --note <note>", "Feedback for the agent to address")
+  .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
+  .action(async (workItemId: string, opts: { type: "ux" | "tech"; note: string; by: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    artifact.status = "changes_requested";
+    artifact.reviewedBy = opts.by;
+    artifact.reviewedAt = new Date().toISOString();
+    artifact.reviewNote = opts.note;
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.reviewedAt,
+      workItemId,
+      actor: `human:${opts.by}`,
+      action: "design_changes_requested",
+      stage: "design",
+      detail: { type, version: artifact.version, note: opts.note },
+    });
+    console.log(
+      `Changes requested on work item ${workItemId} design (${opts.type}, v${artifact.version}) by ${opts.by}.`
+    );
+    console.log(
+      `Next step: re-draft v${artifact.version + 1} addressing this feedback, then ` +
+        `log-design-draft ${workItemId} --type ${opts.type}.`
+    );
+  });
+
+program
   .command("list")
   .description("List all work items and their current status")
   .action(async () => {
@@ -283,4 +428,7 @@ program
     }
   });
 
-program.parseAsync(process.argv);
+program.parseAsync(process.argv).catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});

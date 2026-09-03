@@ -127,7 +127,7 @@ test("the approval audit action string is only ever assigned as an AuditEvent ac
     "expected the approval audit action to be assigned in exactly one place across src/"
   );
 
-  const approveBlockStart = cliSource.indexOf('.command("approve');
+  const approveBlockStart = cliSource.indexOf('.command("approve <');
   assert.notEqual(approveBlockStart, -1, "approve command block not found in cli.ts");
   const nextCommandStart = cliSource.indexOf(
     'program\n  .command(',
@@ -141,6 +141,105 @@ test("the approval audit action string is only ever assigned as an AuditEvent ac
   assert.ok(
     approveBlock.includes("ba_approved_requirements"),
     "the approval audit action string must live inside the approve command block"
+  );
+});
+
+test("the agent_drafted_design audit action is only ever assigned in one place in src/, inside the log-design-draft command", async () => {
+  const files = (await fs.readdir(SRC_DIR)).filter((f) => f.endsWith(".ts"));
+  const actionAssignment = /action:\s*"agent_drafted_design"/g;
+  let totalOccurrences = 0;
+  let cliSource = "";
+
+  for (const file of files) {
+    const content = await fs.readFile(path.join(SRC_DIR, file), "utf-8");
+    const matches = content.match(actionAssignment) ?? [];
+    totalOccurrences += matches.length;
+    if (file === "cli.ts") cliSource = content;
+  }
+
+  assert.equal(
+    totalOccurrences,
+    1,
+    "expected the agent_drafted_design audit action to be assigned in exactly one place across src/"
+  );
+
+  const blockStart = cliSource.indexOf('.command("log-design-draft');
+  assert.notEqual(blockStart, -1, "log-design-draft command block not found in cli.ts");
+  const nextCommandStart = cliSource.indexOf('program\n  .command(', blockStart + 1);
+  const block = cliSource.slice(
+    blockStart,
+    nextCommandStart === -1 ? undefined : nextCommandStart
+  );
+
+  assert.ok(
+    block.includes("agent_drafted_design"),
+    "the agent_drafted_design audit action string must live inside the log-design-draft command block"
+  );
+});
+
+test("the design_approved audit action is only ever assigned in one place in src/, inside the approve-design command", async () => {
+  const files = (await fs.readdir(SRC_DIR)).filter((f) => f.endsWith(".ts"));
+  const actionAssignment = /action:\s*"design_approved"/g;
+  let totalOccurrences = 0;
+  let cliSource = "";
+
+  for (const file of files) {
+    const content = await fs.readFile(path.join(SRC_DIR, file), "utf-8");
+    const matches = content.match(actionAssignment) ?? [];
+    totalOccurrences += matches.length;
+    if (file === "cli.ts") cliSource = content;
+  }
+
+  assert.equal(
+    totalOccurrences,
+    1,
+    "expected the design_approved audit action to be assigned in exactly one place across src/"
+  );
+
+  const blockStart = cliSource.indexOf('.command("approve-design');
+  assert.notEqual(blockStart, -1, "approve-design command block not found in cli.ts");
+  const nextCommandStart = cliSource.indexOf('program\n  .command(', blockStart + 1);
+  const block = cliSource.slice(
+    blockStart,
+    nextCommandStart === -1 ? undefined : nextCommandStart
+  );
+
+  assert.ok(
+    block.includes("design_approved"),
+    "the design_approved audit action string must live inside the approve-design command block"
+  );
+});
+
+test("the design_changes_requested audit action is only ever assigned in one place in src/, inside the request-design-changes command", async () => {
+  const files = (await fs.readdir(SRC_DIR)).filter((f) => f.endsWith(".ts"));
+  const actionAssignment = /action:\s*"design_changes_requested"/g;
+  let totalOccurrences = 0;
+  let cliSource = "";
+
+  for (const file of files) {
+    const content = await fs.readFile(path.join(SRC_DIR, file), "utf-8");
+    const matches = content.match(actionAssignment) ?? [];
+    totalOccurrences += matches.length;
+    if (file === "cli.ts") cliSource = content;
+  }
+
+  assert.equal(
+    totalOccurrences,
+    1,
+    "expected the design_changes_requested audit action to be assigned in exactly one place across src/"
+  );
+
+  const blockStart = cliSource.indexOf('.command("request-design-changes');
+  assert.notEqual(blockStart, -1, "request-design-changes command block not found in cli.ts");
+  const nextCommandStart = cliSource.indexOf('program\n  .command(', blockStart + 1);
+  const block = cliSource.slice(
+    blockStart,
+    nextCommandStart === -1 ? undefined : nextCommandStart
+  );
+
+  assert.ok(
+    block.includes("design_changes_requested"),
+    "the design_changes_requested audit action string must live inside the request-design-changes command block"
   );
 });
 
