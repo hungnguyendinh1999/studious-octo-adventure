@@ -37,6 +37,6 @@ export interface AuditEvent {
   workItemId: string;
   actor: string; // "agent:ba-agent" or "human:<name>"
   action: string; // e.g. "agent_drafted_requirements", "ba_approved_requirements"
-  stage: string; // "requirements" (design/tasks in later phases)
+  stage: string; // "requirements" | "design" (tasks in later phases)
   detail?: Record<string, unknown>;
 }

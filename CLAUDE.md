@@ -3,9 +3,11 @@
 ## What this is
 
 Local-first ADLC (AI Development Lifecycle): AI agents draft artifacts at
-each SDLC stage, humans gate each stage before it proceeds. This repo is
-**Phase 1 only**: raw request docs (BRD) → agent-drafted PRD → BA/PO
-approval gate → context lake update.
+each SDLC stage, humans gate each stage before it proceeds. This repo now
+covers two phases: **Requirements** (raw request docs (BRD) → agent-drafted
+PRD → BA/PO approval gate → context lake update) and **Design** (UX/UI Spec
++ Technical/System Design → Reviewer gates per artifact type → context lake
+update).
 
 ## Settled decisions — do not relitigate these
 
@@ -27,9 +29,11 @@ approval gate → context lake update.
   agent discretion, never invoked implicitly elsewhere in the flow. This
   is the guarantee that survives even if agent behavior drifts. The same
   rule now covers every state transition in the daily flow:
-  `create-work-item`, `log-draft`, `approve`, `request-changes`, and
-  `log-context-update` are each a deterministic subcommand with no model
-  call in it. The agent does the thinking; the CLI does the recording.
+  `create-work-item`, `log-draft`, `approve`, `request-changes`,
+  `log-context-update`, `log-design-draft`, `approve-design`, and
+  `request-design-changes` are each a deterministic subcommand with no
+  model call in it. The agent does the thinking; the CLI does the
+  recording.
 - **Approval signal is the literal word "approve" or "approved."** No
   fuzzy matching, no inferred sentiment.
 - **BRD "location" is a folder of one or more documents**, not a single
@@ -77,7 +81,7 @@ approval gate → context lake update.
 Do not hardcode a specific backend into a caller — go through the
 interface.
 
-## Phases (this repo is Phase 1 only)
+## Phases (this repo covers Phase 1 and Phase 2)
 
 1. **Requirements Analysis** (this repo) - BA agent, PRD, BA/PO gate
 2. **Design** (this repo) - two independently-gated artifacts per work
@@ -120,10 +124,11 @@ interface.
 - **Both gates required before Coding**, when both artifact types apply
   to the work item.
 - Same deterministic-audit-subcommand pattern as Requirements:
-  `log-design-draft`, `approve-design`, `request-design-changes` each
-  take `--type ux|tech`. `log-context-update` now takes an optional
-  `--stage` flag (defaults to `requirements`) so a Design-triggered
-  context-lake update records `stage: "design"`.
+  `log-design-draft`, `approve-design`, `request-design-changes` (the
+  write verbs) and `show-design` (the read verb) each take
+  `--type ux|tech`. `log-context-update` now takes an optional `--stage`
+  flag (defaults to `requirements`) so a Design-triggered context-lake
+  update records `stage: "design"`.
 
 ## Conventions
 

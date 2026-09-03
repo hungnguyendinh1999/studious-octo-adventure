@@ -1,6 +1,6 @@
 # ADLC (AI Development Lifecycle)
 
-Local-first pipeline where AI agents draft artifacts at each SDLC stage and humans gate each stage before it proceeds. Phase 1 (Requirements) is built; Phase 2 (Design) is being designed.
+Local-first pipeline where AI agents draft artifacts at each SDLC stage and humans gate each stage before it proceeds. Phase 1 (Requirements) and Phase 2 (Design) are both built.
 
 ## Language
 

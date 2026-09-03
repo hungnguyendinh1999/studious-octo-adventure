@@ -1,11 +1,12 @@
 # ADLC Phase 1 — BA Agent (Todo App Demo)
 
-Runnable Phase 1 of the ADLC: a folder of loose input documents (BRD,
-notes, whatever exists) → agent-drafted PRD → BA/PO gate (approve or
+Runnable Phase 1 and Phase 2 of the ADLC: a folder of loose input documents
+(BRD, notes, whatever exists) → agent-drafted PRD → BA/PO gate (approve or
 request changes) → approved content feeds the context lake for future
-runs. Intentionally thin — a CLI, a local file-based artifact store, and
-an append-only audit log. Every piece is designed to be swapped out; see
-below.
+runs, then a UX/UI Spec and a Technical/System Design → their own Reviewer
+gates → context lake again. Intentionally thin — a CLI, a local file-based
+artifact store, and an append-only audit log. Every piece is designed to
+be swapped out; see below.
 
 ## What's here
 
@@ -189,7 +190,7 @@ None of these swaps require changing `cli.ts`'s command logic — only the
 implementation behind `DocumentStore`, the log writer, or how knowledge
 base and context lake docs get loaded.
 
-## Known gaps (expected — this is Phase 1 only)
+## Known gaps
 
 - PRD is markdown-only, not machine-parseable yet — fine for human
   review, will need a structured (JSON) form once Phase 3 needs to
@@ -204,3 +205,7 @@ base and context lake docs get loaded.
   free-text (`--by <name>`), same trust model as Requirements
 - No web UI — CLI only, on purpose, to keep this cheap to throw away or
   rework
+- `npm run audit` doesn't distinguish which design artifact type (`ux_spec`
+  vs `tech_design`) each Design-stage audit line refers to — the data is in
+  `detail.type` in the JSONL, just not printed. A future pass could add a
+  `type`/`detail` column to the `audit` command's output.

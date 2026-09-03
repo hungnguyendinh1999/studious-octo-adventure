@@ -11,3 +11,10 @@ Phase 1's Requirements stage produces a single `RequirementsArtifact` (the PRD) 
 
 - Both gates are required before Coding starts, when both artifacts exist for a Work Item (Technical Design only, when UX doesn't apply).
 - Each artifact type gets its own version counter and audit-log actions, mirroring but not identical to Phase 1's `RequirementsArtifact` pattern.
+- Nothing in `log-design-draft` checks that the Work Item's Requirements are
+  actually approved before Design starts — that precondition is enforced
+  only by prose (the skill files and instruction template telling the human
+  to confirm `npm run show` shows `approved` first). This mirrors Phase 1's
+  own precedent (the ordering between `create-work-item` and `log-draft` is
+  also prose-enforced, not code-checked) and is a deliberate choice, not an
+  oversight — revisit if this ordering is ever violated in practice.
