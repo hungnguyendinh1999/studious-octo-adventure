@@ -328,6 +328,38 @@ program
   });
 
 program
+  .command("approve-design <workItemId>")
+  .description(
+    "Reviewer gate: mark the latest design artifact of the given type approved and " +
+      "write the audit record. Does not touch the context lake — see log-context-update."
+  )
+  .addOption(designTypeOption())
+  .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
+  .option("-n, --note <note>", "Optional review note")
+  .action(async (workItemId: string, opts: { type: "ux" | "tech"; by: string; note?: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    const artifact = await store.loadLatestDesignArtifact(workItemId, type);
+    artifact.status = "approved";
+    artifact.reviewedBy = opts.by;
+    artifact.reviewedAt = new Date().toISOString();
+    artifact.reviewNote = opts.note;
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.reviewedAt,
+      workItemId,
+      actor: `human:${opts.by}`,
+      action: "design_approved",
+      stage: "design",
+      detail: { type, version: artifact.version, note: opts.note },
+    });
+    console.log(`Work item ${workItemId} design (${opts.type}) approved by ${opts.by}.`);
+    console.log(
+      "Next step: follow skills/update-context-lake.md yourself to update the context " +
+        `lake for this work item, then run log-context-update -- ${workItemId} --stage design.`
+    );
+  });
+
+program
   .command("list")
   .description("List all work items and their current status")
   .action(async () => {

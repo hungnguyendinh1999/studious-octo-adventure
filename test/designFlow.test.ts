@@ -98,3 +98,45 @@ test("show-design errors clearly when that type has no draft yet", async () => {
   const result = await runCli(["show-design", id, "--type", "ux"], { cwd: dir });
   assert.notEqual(result.exitCode, 0, "expected a non-zero exit when no ux_spec exists yet");
 });
+
+test("approve-design marks the ux_spec approved and logs design_approved with stage design", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+  await fs.writeFile(path.join(dir, "ux.md"), "# UX Spec");
+  await runCli(["log-design-draft", id, "--file", "ux.md", "--type", "ux"], { cwd: dir });
+
+  const result = await runCli(
+    ["approve-design", id, "--type", "ux", "-b", "design-lead"],
+    { cwd: dir }
+  );
+  assert.equal(result.exitCode, 0, `expected clean exit, got stderr:\n${result.stderr}`);
+
+  const latest = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-ux.latest.json"), "utf-8")
+  );
+  assert.equal(latest.status, "approved");
+  assert.equal(latest.reviewedBy, "design-lead");
+
+  const events = await readAuditLines(dir);
+  const approved = events.filter((e) => e.action === "design_approved");
+  assert.equal(approved.length, 1);
+  assert.equal(approved[0].stage, "design");
+  assert.equal((approved[0].detail as { type: string }).type, "ux_spec");
+  assert.equal((approved[0].detail as { version: number }).version, 1);
+});
+
+test("approving tech_design does not affect the ux_spec gate", async () => {
+  const dir = await withTempProjectDir();
+  const id = await createWorkItem(dir);
+  await fs.writeFile(path.join(dir, "ux.md"), "# UX Spec");
+  await runCli(["log-design-draft", id, "--file", "ux.md", "--type", "ux"], { cwd: dir });
+  await fs.writeFile(path.join(dir, "tech.md"), "# Tech Design");
+  await runCli(["log-design-draft", id, "--file", "tech.md", "--type", "tech"], { cwd: dir });
+
+  await runCli(["approve-design", id, "--type", "tech", "-b", "tech-lead"], { cwd: dir });
+
+  const ux = JSON.parse(
+    await fs.readFile(path.join(dir, "artifacts", id, "design-ux.latest.json"), "utf-8")
+  );
+  assert.equal(ux.status, "in_review", "ux_spec gate must stay independent of the tech_design gate");
+});
