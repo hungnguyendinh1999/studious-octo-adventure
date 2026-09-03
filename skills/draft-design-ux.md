@@ -21,7 +21,12 @@ have something to draft.
   context (`context/context-lake.md`) - read both yourself if not already
   provided. Follow their terminology and existing naming rather than
   inventing new ones. If either file does not exist at all, stop and tell the
-  human, same rule as `skills/draft-requirements.md`.
+  human, same rule as `skills/draft-requirements.md` - unless a prior
+  approved artifact in this same work item's chain (e.g. the PRD) already
+  documents a stand-in for missing scaffolding (what stood in for the
+  knowledge base, how a missing context lake was treated). If so, follow
+  that same stand-in rather than re-raising the stop condition - don't make
+  every stage re-ask a question the work item already answered.
 - If this is a revision, you will also receive the previous UX spec version
   and a reviewer's feedback. Address the feedback directly; do not regenerate
   from scratch and drop unrelated content the reviewer didn't object to.
@@ -39,7 +44,11 @@ single-screen feature.
 For each screen: the inputs a user can act on, what happens on each action,
 and the validation/error states that can occur. Reference the PRD's user
 story numbers (US-n) so a reviewer can trace each interaction back to a
-requirement.
+requirement. If an interaction doesn't cleanly map to one story number (e.g.
+an acceptance criterion references another story's "pattern" for something
+that story never actually names), describe the interaction anyway and flag
+the story-boundary ambiguity in Open Questions rather than guessing which
+US-n owns it.
 
 ### 3. Content
 User-facing copy and labels that materially affect understanding (button
@@ -66,3 +75,8 @@ move to technical design.
   it in prose.
 - If the PRD is ambiguous about a screen's behavior, make a reasonable
   assumption and flag it in Open Questions rather than leaving it undefined.
+- A PRD-flagged *blocking* gap (e.g. "US-n can't ship without resolving
+  this") is different from routine ambiguity: describe the interaction the
+  UX layer needs regardless of how the gap resolves, and re-flag it in Open
+  Questions - don't halt UX work over a Requirements-stage open question the
+  UX spec doesn't actually need answered to do its own job.
