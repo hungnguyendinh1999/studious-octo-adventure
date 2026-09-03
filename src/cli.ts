@@ -274,7 +274,7 @@ program
   .command("log-design-draft <workItemId>")
   .description(
     "Save a design artifact (UX spec or technical/system design) you drafted yourself " +
-      "as the next version for its type and write the audit record. Deterministic — " +
+      "as the next version for its type and write the audit record. Deterministic - " +
       "no model call. Version is tracked independently per artifact type."
   )
   .requiredOption("-f, --file <path>", "Path to the drafted design markdown file")
@@ -331,7 +331,7 @@ program
   .command("approve-design <workItemId>")
   .description(
     "Reviewer gate: mark the latest design artifact of the given type approved and " +
-      "write the audit record. Does not touch the context lake — see log-context-update."
+      "write the audit record. Does not touch the context lake - see log-context-update."
   )
   .addOption(designTypeOption())
   .option("-b, --by <name>", "Reviewer name", "unknown-reviewer")
@@ -363,7 +363,7 @@ program
   .command("request-design-changes <workItemId>")
   .description(
     "Reviewer gate: mark the latest design artifact of the given type as " +
-      "changes-requested and write the audit record. Does not re-draft — the " +
+      "changes-requested and write the audit record. Does not re-draft - the " +
       "harness-agent does that per the relevant draft-design-*.md skill."
   )
   .addOption(designTypeOption())
