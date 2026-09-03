@@ -225,13 +225,14 @@ program
   )
   .option("-b, --by <name>", "Who/what performed the update", "context-lake-agent")
   .option("-n, --note <note>", "Optional summary of what was added")
-  .action(async (workItemId: string, opts: { by: string; note?: string }) => {
+  .option("-s, --stage <stage>", "Which stage's approval triggered this update", "requirements")
+  .action(async (workItemId: string, opts: { by: string; note?: string; stage: string }) => {
     await appendAuditEvent({
       timestamp: new Date().toISOString(),
       workItemId,
       actor: `agent:${opts.by}`,
       action: "context_lake_updated",
-      stage: "requirements",
+      stage: opts.stage,
       detail: { note: opts.note },
     });
     console.log(`Context-lake update for work item ${workItemId} recorded.`);

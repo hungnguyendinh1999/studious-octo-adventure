@@ -170,3 +170,35 @@ test("request-design-changes marks changes_requested, and the next log-design-dr
   const events = await readAuditLines(dir);
   assert.ok(events.some((e) => e.action === "design_changes_requested"));
 });
+
+test("log-context-update defaults to stage requirements when --stage is omitted", async () => {
+  const dir = await withTempProjectDir();
+  const result = await runCli(
+    ["log-context-update", "wi-1", "--by", "ba-agent", "--note", "added Notifications module"],
+    { cwd: dir }
+  );
+  assert.equal(result.exitCode, 0);
+  const events = await readAuditLines(dir);
+  assert.equal(events[0].stage, "requirements");
+});
+
+test("log-context-update records stage design when passed explicitly", async () => {
+  const dir = await withTempProjectDir();
+  const result = await runCli(
+    [
+      "log-context-update",
+      "wi-1",
+      "--by",
+      "tech-lead",
+      "--note",
+      "documented new API contract",
+      "--stage",
+      "design",
+    ],
+    { cwd: dir }
+  );
+  assert.equal(result.exitCode, 0);
+  const events = await readAuditLines(dir);
+  assert.equal(events[0].stage, "design");
+  assert.equal(events[0].action, "context_lake_updated");
+});
