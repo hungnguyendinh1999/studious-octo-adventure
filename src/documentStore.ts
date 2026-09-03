@@ -1,8 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
-import type { RequirementsArtifact, WorkItem } from "./types.js";
+import type { DesignArtifact, DesignArtifactType, RequirementsArtifact, WorkItem } from "./types.js";
 
 const ARTIFACT_ROOT = path.resolve(process.cwd(), "artifacts");
+
+function designFilePrefix(type: DesignArtifactType): string {
+  return type === "ux_spec" ? "design-ux" : "design-tech";
+}
 
 /**
  * DocumentStore: the artifact store / "context lake" for the ADLC.
@@ -61,6 +65,37 @@ export class LocalDocumentStore {
   async loadLatestRequirements(workItemId: string): Promise<RequirementsArtifact> {
     const raw = await fs.readFile(
       path.join(this.workItemDir(workItemId), "requirements.latest.json"),
+      "utf-8"
+    );
+    return JSON.parse(raw);
+  }
+
+  async saveDesignArtifact(artifact: DesignArtifact): Promise<void> {
+    const dir = this.workItemDir(artifact.workItemId);
+    await this.ensureWorkItemDir(artifact.workItemId);
+    const prefix = designFilePrefix(artifact.type);
+
+    await fs.writeFile(
+      path.join(dir, `${prefix}.v${artifact.version}.md`),
+      artifact.content
+    );
+    await fs.writeFile(
+      path.join(dir, `${prefix}.v${artifact.version}.meta.json`),
+      JSON.stringify({ ...artifact, content: "(see .md file)" }, null, 2)
+    );
+    await fs.writeFile(
+      path.join(dir, `${prefix}.latest.json`),
+      JSON.stringify(artifact, null, 2)
+    );
+  }
+
+  async loadLatestDesignArtifact(
+    workItemId: string,
+    type: DesignArtifactType
+  ): Promise<DesignArtifact> {
+    const prefix = designFilePrefix(type);
+    const raw = await fs.readFile(
+      path.join(this.workItemDir(workItemId), `${prefix}.latest.json`),
       "utf-8"
     );
     return JSON.parse(raw);

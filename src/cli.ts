@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import "dotenv/config";
-import { Command } from "commander";
+import { Command, Option } from "commander";
 import { nanoid } from "nanoid";
 import { promises as fs } from "fs";
 import path from "path";
@@ -9,7 +9,7 @@ import { appendAuditEvent, readAuditLog } from "./auditLog.js";
 import { draftRequirements, type LabeledDoc } from "./baAgent.js";
 import { loadInputDocsFromFolder } from "./inputLoader.js";
 import { OllamaModelClient } from "./modelClient.js";
-import type { RequirementsArtifact, WorkItem } from "./types.js";
+import type { DesignArtifact, DesignArtifactType, RequirementsArtifact, WorkItem } from "./types.js";
 
 const store = new LocalDocumentStore();
 const program = new Command();
@@ -24,6 +24,19 @@ async function loadContextFile(filePath: string): Promise<LabeledDoc[]> {
   } catch {
     return [];
   }
+}
+
+function designTypeOption(): Option {
+  return new Option(
+    "-t, --type <type>",
+    '"ux" (UX/UI spec) or "tech" (technical/system design)'
+  )
+    .choices(["ux", "tech"])
+    .makeOptionMandatory();
+}
+
+function toDesignArtifactType(flag: "ux" | "tech"): DesignArtifactType {
+  return flag === "ux" ? "ux_spec" : "tech_design";
 }
 
 program
@@ -254,6 +267,52 @@ program
     console.log(
       "Next step: follow skills/draft-requirements.md yourself to re-draft " +
         `v${artifact.version + 1} addressing this feedback.`
+    );
+  });
+
+program
+  .command("log-design-draft <workItemId>")
+  .description(
+    "Save a design artifact (UX spec or technical/system design) you drafted yourself " +
+      "as the next version for its type and write the audit record. Deterministic — " +
+      "no model call. Version is tracked independently per artifact type."
+  )
+  .requiredOption("-f, --file <path>", "Path to the drafted design markdown file")
+  .addOption(designTypeOption())
+  .option("-b, --by <name>", "Which agent produced the draft", "design-agent")
+  .action(async (workItemId: string, opts: { file: string; type: "ux" | "tech"; by: string }) => {
+    const type = toDesignArtifactType(opts.type);
+    await store.loadWorkItem(workItemId);
+    const content = await fs.readFile(path.resolve(opts.file), "utf-8");
+
+    const prev = await store
+      .loadLatestDesignArtifact(workItemId, type)
+      .catch(() => null);
+    const artifact: DesignArtifact = {
+      workItemId,
+      type,
+      version: prev ? prev.version + 1 : 1,
+      content,
+      status: "in_review",
+      createdAt: new Date().toISOString(),
+    };
+    await store.saveDesignArtifact(artifact);
+    await appendAuditEvent({
+      timestamp: artifact.createdAt,
+      workItemId,
+      actor: `agent:${opts.by}`,
+      action: "agent_drafted_design",
+      stage: "design",
+      detail: { type, version: artifact.version },
+    });
+
+    console.log(
+      `Design draft (${opts.type}) v${artifact.version} recorded: ` +
+        `artifacts/${workItemId}/design-${opts.type}.v${artifact.version}.md`
+    );
+    console.log(
+      `Next step: the Reviewer for this artifact type reviews it (show-design ${workItemId} --type ${opts.type}), ` +
+        "then approve-design or request-design-changes."
     );
   });
 
